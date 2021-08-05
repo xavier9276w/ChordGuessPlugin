@@ -6,15 +6,4 @@ This application allow users to create their own music sheet, piece and songs in
 
 ## Feature
 
-f1
-f2
-f3
-f4
-
-## Note
-
-Under developing...
-
-## Local development
-
-Upcoming...
+## Release
