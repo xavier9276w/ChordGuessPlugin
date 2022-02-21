@@ -8,12 +8,12 @@ import Qt.labs.settings 1.0
 MuseScore {
     version:  "3.0";
 	description: "Guess chord based on the notes bar by bar, based on some logic.";
-	menuPath: "Plugins.ChordGuess";
+	menuPath: "Plugins.ChordGuessV1";
     pluginType: "dock";
     requiresScore: true;
     dockArea: "left";
-    width: parent.width;
-    height: parent.height;
+    implicitWidth: 400;
+    implicitHeight: 3000;
 
     property variant black     : "#000000"
     property variant red       : "#ff0000"
@@ -638,9 +638,10 @@ MuseScore {
 
     Rectangle{
         id: root;
-        anchors.fill: parent;
         color: "lightblue";
-
+        width:parent.width;
+        height:parent.height;
+        anchors.fill: parent;
         TextArea{
             id: descriptionText;
             readOnly : true;
