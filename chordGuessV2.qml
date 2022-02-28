@@ -8,13 +8,13 @@ import Qt.labs.settings 1.0
 MuseScore {
     version:  "3.0";
 	description: "Guess chord based on the notes bar by bar, based on some logic.";
-	menuPath: "Plugins.ChordGuessV1";
+	menuPath: "Plugins.ChordGuessV2";
     pluginType: "dock";
     requiresScore: true;
     dockArea: "left";
     implicitWidth: 400;
     implicitHeight: 3000;
-
+    
     property variant black     : "#000000"
     property variant red       : "#ff0000"
     property variant green     : "#00ff00"
@@ -26,36 +26,36 @@ MuseScore {
     // 1 is combined method (Note Matching)
     // 2 is pure CPF
     // 3 is pure note matching
-    property var a : "ASBSD";
     property var mode: 0;
     property var notes;
     property var key;
     property var possibleChord;
     property var chordHarmonyArray;
     property var chordAndHarmonyString;
-    property var guessedChord;
+    property var guessedChord: [];
     property var chordWithCounter;
     property var chordWithProgression;
     property var nBarsToGuess;
-    property var possibility; 
+    property var probability: []; 
     property var currentBarNumber: 0;
+    property var keyOpt : -1;
     // nameNote function is used to identify all the notes present in the score
     // tpc is tonal pitch class, each represent a pitch such as (14 = C)
     // the notes pass in is a list
     // tpc	name	tpc	name	tpc	name	tpc	name	tpc	name
-    // -1	F♭♭	    6	F♭	    13	F	    20	F♯	    27	F♯♯
-    // 0	C♭♭	    7	C♭	    14	C	    21	C♯	    28	C♯♯
-    // 1	G♭♭	    8	G♭	    15	G	    22	G♯	    29	G♯♯
-    // 2	D♭♭	    9	D♭	    16	D	    23	D♯	    30	D♯♯
-    // 3	A♭♭	    10	A♭	    17	A	    24	A♯	    31	A♯♯
-    // 4	E♭♭	    11	E♭	    18	E	    25	E♯	    32	E♯♯
-    // 5	B♭♭	    12	B♭	    19	B	    26	B♯	    33	B♯♯
+    // -1	Fbb	    6	Fb	    13	F	    20	F#	    27	F##
+    // 0	Cbb	    7	Cb	    14	C	    21	C#	    28	C##
+    // 1	Gbb	    8	Gb	    15	G	    22	G#	    29	G##
+    // 2	Dbb	    9	Db	    16	D	    23	D#	    30	D##
+    // 3	Abb	    10	Ab	    17	A	    24	A#	    31	A##
+    // 4	Ebb	    11	Eb	    18	E	    25	E#	    32	E##
+    // 5	Bbb	    12	Bb	    19	B	    26	B#	    33	B##
     function getNoteName (tempNotes) {
         // tpc_str is the array of tpc name in order of tpc table above
         // 0 = C flat flat, 14 = C etc.
-        var tpc_str = ["C♭♭","G♭♭","D♭♭","A♭♭","E♭♭","B♭♭",
-                "F♭","C♭","G♭","D♭","A♭","E♭","B♭","F","C","G","D","A","E","B","F♯","C♯","G♯","D♯","A♯","E♯","B♯",
-                "F♯♯","C♯♯","G♯♯","D♯♯","A♯♯","E♯♯","B♯♯","F♭♭"]; //tpc -1 is at number 34 (last item).
+        var tpc_str = ["Cbb","Gbb","Dbb","Abb","Ebb","Bbb",
+                "Fb","Cb","Gb","Db","Ab","Eb","Bb","F","C","G","D","A","E","B","F#","C#","G#","D#","A#","E#","B#",
+                "F##","C##","G##","D##","A##","E##","B##","Fbb"]; //tpc -1 is at number 34 (last item).
         
         // we use for loop to check each note and prompt their name
         for (var i = 0; i < tempNotes.length; i++) {  
@@ -68,45 +68,57 @@ MuseScore {
         }
     }
     
-    // findKey function is used to find the key of the score based on number of accidentals (♯/♭)
+    // findKey function is used to find the key of the score based on number of accidentals (#/b)
     // positive(+) number indicates n of sharps, negative(-) number indicate n of flats
     function getKey(numOfAccidentals){
         var key = "";
         // possibleChordsInKey shows all possible chords in this key
         var possibleChordsInKey = []
         switch(numOfAccidentals){
-            case -7: key = "C♭ Major/A♭ minor"; break;
-            case -6: key = "G♭ Major/E♭ minor"; break;
-            case -5: key = "D♭ Major/B♭ minor"; break;
-            case -4: key = "A♭ Major/F minor"; break;
-            case -3: key = "E♭ Major/C minor"; break;
-            case -2: key = "B♭ Major/G minor"; break;
+            case -7: key = "Cb Major/Ab minor"; break;
+            case -6: key = "Gb Major/Eb minor"; break;
+            case -5: key = "Db Major/Bb minor"; break;
+            case -4: key = "Ab Major/F minor"; break;
+            case -3: key = "Eb Major/C minor"; break;
+            case -2: key = "Bb Major/G minor"; break;
             case -1: key = "F Major/D minor"; break;
             case 0: key = "C Major/A minor"; break;
             case 1: key = "G Major/E minor"; break;
             case 2: key = "D Major/B minor"; break;
-            case 3: key = "A Major/F♯ minor"; break;
-            case 4: key = "E Major/C♯ minor"; break;
-            case 5: key = "B Major/G♯ minor"; break;
-            case 6: key = "F♯ Major/D♯ minor"; break;
-            case 7: key = "C♯ Major/A♯ minor"; break;
+            case 3: key = "A Major/F# minor"; break;
+            case 4: key = "E Major/C# minor"; break;
+            case 5: key = "B Major/G# minor"; break;
+            case 6: key = "F# Major/D# minor"; break;
+            case 7: key = "C# Major/A# minor"; break;
             default: return "Undefined ??/ no key?"; // this should never prompt
         }
         return key;
     }
 
     // function to guess key
-    function guessKey(numOfAccidentals,tempNotes){
+    function guessKey(numOfAccidentals,tempNotes,keyOption){
         var lastNote = tempNotes[tempNotes.length-1][tempNotes[tempNotes.length-1].length-1];
         var tempKey = getKey(numOfAccidentals)
         // check the last note and key
+        // keyOption, 0 = major , 1 = minor
+        if(keyOption == 0){
+            return (tempKey.slice(0, tempKey.indexOf("/")))
+        }else if(keyOption == 1){
+            return (tempKey.slice(tempKey.indexOf("/")+1 , tempKey.length))
+        }
+        // first time run just check which key, if cannot identify then set to major
         if(tempKey.includes(lastNote)){
             // if the key is same with the last note, then it is that key
-            if(tempKey.startsWith(lastNote))
-                tempKey = tempKey.slice(0, tempKey.indexOf("/"))
-            else
-                tempKey = tempKey.slice(tempKey.indexOf("/")+1 , tempKey.length)
+            if(tempKey.startsWith(lastNote) ){
+                keyOpt = 0;
+                return (tempKey.slice(0, tempKey.indexOf("/")))
+            }
+            else{
+                keyOpt = 1;
+                return (tempKey.slice(tempKey.indexOf("/")+1 , tempKey.length))
+            }
         }
+        keyOpt = 0;
         return tempKey;
     }
 
@@ -172,10 +184,10 @@ MuseScore {
 
         if(numOfAccidentals > 0){
             var accidentalSequence = ["F", "C", "G","D","A","E","B"]
-            var accidentalMark = "♯";
+            var accidentalMark = "#";
         }else {
             var accidentalSequence =  ["B", "E", "A","D","G","C","F"]
-            var accidentalMark = "♭";
+            var accidentalMark = "b";
         }
         
         // if the key is flat key
@@ -227,23 +239,23 @@ MuseScore {
             var minorChords = []
             var isMinor = true 
         }
-        if("C♭ Major/A♭ minor".includes(key)) chords = ["Cb", "D♭m", "E♭m", "F♭" , "G♭" , "A♭m", "B♭dim"];
-        if("G♭ Major/E♭ minor".includes(key)) chords = ["Gb", "A♭m", "B♭m", "C♭" , "D♭" , "E♭m", "Fdim" ];
-        if("D♭ Major/B♭ minor".includes(key)) chords = ["D♭", "E♭m", "Fm" , "G♭" , "A♭" , "B♭m", "Cdim" ];
-        if("A♭ Major/F minor".includes(key))  chords = ["A♭", "B♭m", "Cm" , "D♭" , "E♭" , "Fm", "Gdim"  ];
-        if("E♭ Major/C minor".includes(key))  chords = ["E♭", "Fm" , "Gm" , "A♭" , "B♭" , "Cm", "Ddim"  ];
-        if("B♭ Major/G minor".includes(key))  chords = ["B♭", "Cm" , "Dm" , "E♭" , "F"  , "Gm", "Adim"  ];
-        if("F Major/D minor".includes(key))   chords = ["F" , "Gm" , "Am" , "B♭" , "C" , "Dm" , "Em"    ];
+        if("Cb Major/Ab minor".includes(key)) chords = ["Cb", "Dbm", "Ebm", "Fb" , "Gb" , "Abm", "Bbdim"];
+        if("Gb Major/Eb minor".includes(key)) chords = ["Gb", "Abm", "Bbm", "Cb" , "Db" , "Ebm", "Fdim" ];
+        if("Db Major/Bb minor".includes(key)) chords = ["Db", "Ebm", "Fm" , "Gb" , "Ab" , "Bbm", "Cdim" ];
+        if("Ab Major/F minor".includes(key))  chords = ["Ab", "Bbm", "Cm" , "Db" , "Eb" , "Fm", "Gdim"  ];
+        if("Eb Major/C minor".includes(key))  chords = ["Eb", "Fm" , "Gm" , "Ab" , "Bb" , "Cm", "Ddim"  ];
+        if("Bb Major/G minor".includes(key))  chords = ["Bb", "Cm" , "Dm" , "Eb" , "F"  , "Gm", "Adim"  ];
+        if("F Major/D minor".includes(key))   chords = ["F" , "Gm" , "Am" , "Bb" , "C" , "Dm" , "Em"    ];
     
         if("C Major/A minor".includes(key))   chords = ["C",  "Dm", "Em", "F"  , "G", "Am", "Bdim"];
 
-        if("G Major/E minor".includes(key))   chords = ["G" , "Am" , "Bm" , "C" , "D" , "Em" , "F♯dim"];
-        if("D Major/B minor".includes(key))   chords = ["D" , "Em" , "F#m", "G" , "A" , "Bm" , "C♯dim"];
-        if("A Major/F♯ minor".includes(key))  chords = ["A" , "Bm" , "C♯m", "D" , "E" , "F♯m", "G♯dim"];
-        if("E Major/C♯ minor".includes(key))  chords = ["E" , "F♯m", "G♯m", "A" , "B" , "C♯m", "D♯dim"];
-        if("B Major/G♯ minor".includes(key))  chords = ["B" , "C♯m", "D♯m", "E" , "F♯", "G♯m", "A♯dim"];
-        if("F♯ Major/D♯ minor".includes(key)) chords = ["F♯", "G♯m", "A♯m", "B" , "C♯", "D♯m", "E♯dim"];
-        if("C♯ Major/A♯ minor".includes(key)) chords = ["C♯", "D♯m", "E♯m", "F♯", "G♯", "A♯m", "B♯dim"];
+        if("G Major/E minor".includes(key))   chords = ["G" , "Am" , "Bm" , "C" , "D" , "Em" , "F#dim"];
+        if("D Major/B minor".includes(key))   chords = ["D" , "Em" , "F#m", "G" , "A" , "Bm" , "C#dim"];
+        if("A Major/F# minor".includes(key))  chords = ["A" , "Bm" , "C#m", "D" , "E" , "F#m", "G#dim"];
+        if("E Major/C# minor".includes(key))  chords = ["E" , "F#m", "G#m", "A" , "B" , "C#m", "D#dim"];
+        if("B Major/G# minor".includes(key))  chords = ["B" , "C#m", "D#m", "E" , "F#", "G#m", "A#dim"];
+        if("F# Major/D# minor".includes(key)) chords = ["F#", "G#m", "A#m", "B" , "C#", "D#m", "E#dim"];
+        if("C# Major/A# minor".includes(key)) chords = ["C#", "D#m", "E#m", "F#", "G#", "A#m", "B#dim"];
 
         if(isMinor){
             chords = switchToMinorOrMajor(chords,minorChords,1)
@@ -256,6 +268,8 @@ MuseScore {
         //if (segment.segmentType != Segment.ChordRest) 
         //    return null;
         var aCount = 0;
+        if(segment.annotations.length == 0)
+            return null
         var annotation = segment.annotations[aCount];
         while (annotation) {
             if (annotation.type == Element.HARMONY)
@@ -333,56 +347,93 @@ MuseScore {
     // first chord is added using this function, the first chord symbol is at after the upbeat bar
     // cursor check the first element of each bar, if it is not a chord symbol, it will go to next bar and assign
     // result in the first bar with first element is note will be assigned
-    function addGuessedChords(chordsSymbol,nBarToStartAssign){
+    function addGuessedChords(guessedChord,nBarToStartAssign){
         curScore.startCmd();
-        var tempBar = 0
         var cursor = curScore.newCursor();
         cursor.rewind(0);
         // skip upbeat bar --- optional 
         for(var i = 0; i < nBarToStartAssign; i++){
             cursor.nextMeasure();
         }
-        for(var i = 0; i < chordsSymbol.length; i ++){
+        for(var i = nBarToStartAssign; i < guessedChord.length; i++){
             var seg = cursor.segment
             var harmony = getSegmentHarmony(seg)
             // add first chord in the sheet music
-            // console.log("-----------------------Bar: " + (bar+1) + "-------------------------------")
-            addChordSymbol(cursor,harmony,black,chordsSymbol[i])
+            addChordSymbol(cursor,harmony,guessedChord[i].color,guessedChord[i].name)
+            // console.log("-------------------------Bar : " + i + "-----------------------------")
+            // console.log(chordsSymbol[i].name)
             cursor.nextMeasure();
         }
         curScore.endCmd();
     }
 
- // pass in chordNumber to addPossibleChord for that chord
-    function addChordSymbol(cursor, harmony,harmonyColor, chordNumber){
+    // pass in chordNumber to addPossibleChord for that chord
+    function addChordSymbol(cursor, harmony,harmonyColor, chordName){
         // var seg = cursor.segment
         // var harmony = getSegmentHarmony(seg)
+        // if (harmony) { //if chord symbol exists, replace it
+        //     //console.log("got harmony " + staffText + " with root: " + harmony.rootTpc + " bass: " + harmony.baseTpc);
+        //     removeElement(harmony);
+        //     harmony.text = chordName;
+        //     harmony.color = harmonyColor;
+        // }else{ //chord symbol does not exist, create it
+        //     harmony = newElement(Element.HARMONY);
+        //     harmony.text = chordName;
+        //     harmony.color = harmonyColor;
+        //     harmony.play = true;
+        //     //console.log("text type:  " + staffText.type);
+        //     cursor.add(harmony);
+        // }
         if (harmony) { //if chord symbol exists, replace it
             //console.log("got harmony " + staffText + " with root: " + harmony.rootTpc + " bass: " + harmony.baseTpc);
-            harmony.text = possibleChord[chordNumber];
-            harmony.color = harmonyColor;
-        }else{ //chord symbol does not exist, create it
-            harmony = newElement(Element.HARMONY);
-            harmony.text = possibleChord[chordNumber];
-            harmony.color = harmonyColor;
-            //console.log("text type:  " + staffText.type);
-            cursor.add(harmony);
+            //console.log("removing chord symbol " + harmony.text)
+            removeElement(harmony);
         }
+        //chord symbol does not exist, create it
+        harmony = newElement(Element.HARMONY);
+        harmony.text = chordName;
+        harmony.color = harmonyColor;
+        harmony.play = true;
+        //console.log("text type:  " + staffText.type);
+        cursor.add(harmony);
     }
+
+    function changeChordSymbol(name){
+        curScore.startCmd()
+        var cursor = curScore.newCursor();
+        cursor.rewind(0)
+        for(var i = 0; i < currentBarNumber; i++){
+            cursor.nextMeasure();
+        }
+        var harmony = getSegmentHarmony(cursor.segment)
+        guessedChord[currentBarNumber].name = name;
+        guessedChord[currentBarNumber].color = black;
+        addChordSymbol(cursor,harmony,black, guessedChord[currentBarNumber].name)
+        curScore.endCmd()
+    }
+
+    // 
     function checkEmptyAndUpbeatBars(){
         var nBarsToGuess = 0;
         var cursor = curScore.newCursor();
         cursor.rewind(0);
+        // empty the array
+        while(guessedChord.length !=0)
+            guessedChord.pop();
         // skip upbeat bar --- optional 
         while(cursor.element.name != "Chord"){
             cursor.nextMeasure()
             nBarsToGuess++
+            guessedChord.push({index:-1 , name:"" ,color:black, tick:cursor.tick});
+            
         }
-        return nBarsToGuess;
+        return {
+            nBar: nBarsToGuess,
+            cursor: cursor}
     }
 
     // this function use notesMatching algorithm to match with the chord harmony array
-    // the result is in 2d array, array[a][b] , a = numberOfBar, b = possibility/counterOfThisChordNumber,
+    // the result is in 2d array, array[a][b] , a = numberOfBar, b = probability/counterOfThisChordNumber,
     // exp: a[1][0] = 5, in bar 1, there are 5 notes matching with chord 0's triad note
     // exp: a[1][5] = 3, in bar 1, there are 3 notes matching with chord 5's triad note
     function notesMatching(tempNotes, chordsHarmony){
@@ -418,13 +469,12 @@ MuseScore {
             //     }
             // }
             
-            console.log("counter[" + bar + "] : " + counter[bar] )
-            console.log(counter[bar].length)
+                // console.log("counter[" + bar + "] : " + counter[bar] )
+                // console.log(counter[bar].length)
         }
     
         return counter
     }
-
 
     // this function will return an array of indexes that has highest value
     // exp : a = [0, 5, 5, 5,1 ,3 ,4]
@@ -446,17 +496,19 @@ MuseScore {
     // this function will return an array with the most fit chord for that bar. 
     // exp: a[0] = 1; The most fitted chord for bar 0 is chord 1 (chordII)
     // IMPROVEMENT:
-    // thinking of another way, which can show the possibility, in that case, all the possible chords will be recorded
+    // thinking of another way, which can show the probability, in that case, all the possible chords will be recorded
     // array[a][b] , a indicating the number of bar, b indicating the possible chords
     // this function returns a 2d array, chordsToBeAssigned
-    function guessChordWithMode(chordsWithCounter,nBarsToGuess,chordToStart,mode){
-        var seg;
-        var harmony;
+    function guessChordWithMode(cursor,chordsWithCounter,nBarsToGuess,chordToStart,mode){
+        console.log("------------GUESSING CHORD WITH MODE :" + mode + " -----------------------")
         var lastChordNumber;
-        var guessedChords = [[]];
-        var finalChord = [];
+        // a array to store a object consist of name,color and tick,
+        var initialGuessChords = [[]];
         var cpf = [];
         var hmc = [];
+        var counter = 0;
+
+        
         // nBarsToGuess not neccessary to be 0, because chord guess might start from bar 4
         // exp: previous bars, bar 0, bar1, bar2, bar3 all are empty bars / upbeat bars
         // default chord to start is chord I (chord 0)
@@ -464,17 +516,20 @@ MuseScore {
             chordToStart = 0;
         }
         // if user already set the first chord
-        guessedChords[nBarsToGuess].push(chordToStart) ;
-        // console.log("mode = " + mode)
-        // console.log("chordtostart = " + chordToStart)
-        // console.log("guessedChords[" + nBarsToGuess + "] = " + guessedChords[nBarsToGuess][0])
-        finalChord.push(chordToStart);
+        initialGuessChords[nBarsToGuess] = []
+        initialGuessChords[nBarsToGuess].push(chordToStart) ;
+        guessedChord.push({index:chordToStart, name:possibleChord[chordToStart],color:black,tick:cursor.tick});
+        // console.log("finalChords[" + nBarsToGuess + "].index = " + finalChord[nBarsToGuess].index)
+        // console.log("finalChords[" + nBarsToGuess + "].name = " + finalChord[nBarsToGuess].name)
+        // console.log("finalChords[" + nBarsToGuess + "].color = " + finalChord[nBarsToGuess].color)
+        // console.log("finalChords[" + nBarsToGuess + "].tick = " + finalChord[nBarsToGuess].tick)
         lastChordNumber = chordToStart;
         nBarsToGuess++;
         //proceed to next bar
         while(nBarsToGuess < chordsWithCounter.length){
+            var uncertain = false;
             // use this function to get all possible chord index in nextChord array
-            guessedChords[nBarsToGuess] = [];
+            initialGuessChords[nBarsToGuess] = [];
             // find CPF (chord progression formula)
             cpf = checkChordProgressionFormula(lastChordNumber,null);
             // find HMC (highest matching chords)
@@ -487,34 +542,62 @@ MuseScore {
                         // to decide which one to be guessed is on later decision
                         // normally will go for first one, but can try rand also
                         if(cpf[i] == hmc[j]){
-                            guessedChords[nBarsToGuess].push(cpf[i])
+                            initialGuessChords[nBarsToGuess].push(cpf[i])
                         }
                     }
                 }
             }
             // which mean CPF != HMC, there doesnt exist a chord matching between two algorithm
             // depending on different mode, the second chord was guess either using CPF or HMC
-            if(guessedChords[nBarsToGuess].length == 0 && (mode == 0 || mode == 2)){
+            if(initialGuessChords[nBarsToGuess].length == 0 && (mode == 0 || mode == 2)){
                 for(var i = 0; i < cpf.length; i++){
-                    guessedChords[nBarsToGuess].push(cpf[i])
+                    if(mode == 0)
+                        uncertain = true;
+                    initialGuessChords[nBarsToGuess].push(cpf[i])
                 }
             }
-            if(guessedChords[nBarsToGuess].length == 0 && (mode == 1 || mode == 3)){
+            if(initialGuessChords[nBarsToGuess].length == 0 && (mode == 1 || mode == 3)){
                     for(var i = 0; i < hmc.length; i++){
-                    guessedChords[nBarsToGuess].push(hmc[i])
+                    if(mode == 1)
+                        uncertain = true;
+                    initialGuessChords[nBarsToGuess].push(hmc[i])
                 }  
             }
-            console.log("guessedChords[" + nBarsToGuess + "] = " + guessedChords[nBarsToGuess]);
+            // console.log("guessedChords[" + nBarsToGuess + "] = " + guessedChords[nBarsToGuess]);
             // Implement logic to determine which chord to choose from
             // default : always pick the first one
-            var finalguessedChords = guessedChords[nBarsToGuess][0];
-            finalChord.push(finalguessedChords)
-            lastChordNumber = finalguessedChords
+            var finalguessedChord;
+            //finalguessedChord = guessedChord[nBarsToGuess][0]
             // or: randomized among them
+            if(initialGuessChords[nBarsToGuess].length > 1){
+                var rand = Math.floor(Math.random() * initialGuessChords[nBarsToGuess].length)
+                finalguessedChord = initialGuessChords[nBarsToGuess][rand];
+            }
+            else{
+                finalguessedChord = initialGuessChords[nBarsToGuess][0]
+            }
+            // console.log("-------------------------------BAR " + nBarsToGuess + " ---------------------------------")
+            // console.log("CPF[" + nBarsToGuess + "] = " + cpf);
+            // console.log("HMC[" + nBarsToGuess + "] = " + hmc);
+            // console.log("InitalGuessChords[" + nBarsToGuess + "] = " + initialGuessChords[nBarsToGuess]);
+            // console.log("finalguessedChord[" + nBarsToGuess + "] = " + finalguessedChord)
+            cursor.nextMeasure();
+            // declaring properties to store in guessedChord object
+            var tempIndex = finalguessedChord;
+            var tempName = possibleChord[tempIndex];
+            // if uncertain use Red Chord
+            if(uncertain)
+                var tempColor = red;
+            else
+                var tempColor = black;
+            var tempTick = cursor.tick;
+
+            guessedChord.push({index: tempIndex, name: tempName, color:tempColor, tick:tempTick});            
+            lastChordNumber = finalguessedChord
             nBarsToGuess++;
         }
         
-        return finalChord;
+        return null;
     }
     // this function aims to returns a array of next possible chord according to chord progression formula
     function checkChordProgressionFormula(lastChordNumber){
@@ -560,9 +643,8 @@ MuseScore {
         
         // first we need to know all notes inside the score
         // after we gather all the notes we want, we can process to determine it is a minor or major key
-
-        key = guessKey(numOfAccidentals,notes)
-
+        key = guessKey(numOfAccidentals,notes,keyOpt)
+        
         // find all possible chord and their harmony in that key
         possibleChord = getAllPossibleChords(key)
         chordHarmonyArray = getPossibleChordHarmony(key, numOfAccidentals);
@@ -570,47 +652,40 @@ MuseScore {
     
         // check the first note to avoid upbeat
         // console.log("\n---------------------------Chord Guess Starts-------------------------")
-        nBarsToGuess = checkEmptyAndUpbeatBars();
-        console.log("BAR = " + nBarsToGuess)
+        var a = checkEmptyAndUpbeatBars();
+        nBarsToGuess = a.nBar;
+        var cursor = a.cursor;   
+        // console.log("nBarToGuess = " + nBarsToGuess)     
         // console.log("added chord: " + possibleChord[lastChordNumber])
         chordWithCounter = notesMatching(notes,chordHarmonyArray);
-        guessedChord = guessChordWithMode(chordWithCounter,nBarsToGuess,null,mode);
+        // assign guessedChord to guessedChord array
+        guessChordWithMode(cursor,chordWithCounter,nBarsToGuess,null,mode);
         //below are the process to add harmony/chord into bars
         addGuessedChords(guessedChord,nBarsToGuess)
         return;
     }
 
-    function guessChordWithKey(key){
-        key = key;
-        chordWithCounter = notesMatching(notes,chordHarmonyArray);
-        guessedChord = guessChordWithMode(chordWithCounter,nBarsToGuess,null,mode);
-        addGuessedChords(guessedChord,nBarsToGuess)
-    }
-
-    function findBar(){
+    // for a given tick, check which bar is it, it must be the first segment in bar
+    function findBar(targetTick){
         var cursor = curScore.newCursor();
-        var cursor2 = curScore.newCursor();
-        cursor2.rewind(0);
-        var ab1;
-        var ab2 = 0;
+        cursor.rewind(0)
+        var targetTick;
+        var curTick = 0;
         var i = true;
         var bar = 0;
-        // make cursor rewind to selection
-        cursor.rewind(1)
-        ab1 = cursor.tick;
-        while(ab2 != ab1 && ab2 < ab1 && i){
-            i = cursor2.nextMeasure();
-            ab2 = cursor2.tick
+        while(curTick != targetTick && curTick < targetTick && i){
+            i = cursor.nextMeasure();
+            curTick = cursor.tick
             bar++;
         }
-        if(ab2 > ab1 || !i){
-            bar = 0;
-            console.log("invalid selection, wrong")
+        if(curTick > targetTick || !i){
+            bar = -1;
         }
         return bar;
     }
 
-    function changePossibility(nBar){
+    // change the possiblity -> new possiblity with currentChord
+    function changeProbability(nBar){
         var highest = 0;
         var temp = [];
         highest = Math.max.apply(null,chordWithCounter[nBar]);
@@ -623,28 +698,53 @@ MuseScore {
     // onRun 
     onRun: {
         notes = extractNotes();
-        possibility = [];
+        probability = [];
         guessChord()
     }
 
     onScoreStateChanged: {
         if(state.selectionChanged){
-            currentBarNumber = findBar();
-            console.log("chordwithcounter[" + currentBarNumber + "] = " + chordWithCounter[currentBarNumber])
-            possibility = changePossibility(currentBarNumber);
-            console.log("possibility[" + currentBarNumber + "] = " + possibility)
+            probability = []
+            if(curScore.selection.elements.length == 0){
+                console.log("NOTHING WAS SELECTED")
+            }
+            else if(curScore.selection.elements.length > 0){
+                if(curScore.selection.elements[0].type == Element.HARMONY){
+                    var firstElement = curScore.selection.elements[0]
+                    var seg = firstElement.parent
+                    // while(firstElemenet.parent.type != Element){}
+                    currentBarNumber = findBar(seg.tick);
+                } 
+                else {
+                    var cursor = curScore.newCursor();
+                    cursor.rewind(1);
+                    if(cursor.segment != null){
+                        var a = cursor.segment
+                        currentBarNumber = findBar(a.tick)
+                    }else{
+                        currentBarNumber = -1
+                    }
+                }
+
+                if(currentBarNumber < 0)
+                    probability = []
+                else 
+                    probability = changeProbability(currentBarNumber);
+                
+            }
+            // console.log("chordwithcounter[" + currentBarNumber + "] = " + chordWithCounter[currentBarNumber])
+            // console.log("probability[" + currentBarNumber + "] = " + probability)
         }
     }
 
     Rectangle{
         id: root;
-        color: "lightblue";
-        width:parent.width;
-        height:parent.height;
         anchors.fill: parent;
+        color: "lightblue";
+        width: 400
+
         TextArea{
             id: descriptionText;
-            readOnly : true;
             height: 110;
             anchors{
                 top: root.top; topMargin: 10
@@ -655,16 +755,16 @@ MuseScore {
                 bold:true;
             }
             text: "ChordGuess Plugin\n\nThis plugin guess chords to each bar automatically based on chord formula progression and notes analysis";
-        } 
+        }
     
         Text{
             id: keyText;
-            height: 30;
-            width: descriptionText.width/2 ;
+            height: modeColumn.height/2;
+            width: descriptionText.width/2;
             wrapMode: Text.WordWrap
             font{
                 bold:true;
-                pixelSize:height/2
+                pixelSize:18
             }
             anchors{
                 left: descriptionText.left; //leftMargin: 10;
@@ -672,24 +772,73 @@ MuseScore {
             }
             text: "Key of this score: " + key;
         }
-        
-        
+
         Button{
             id: switchKeyButton;
             text: "Switch Key";  
-            height: 35;
-            
-            implicitWidth: descriptionText.width/2
+            height: modeColumn.height/2;
+            implicitWidth: keyText.width
             anchors{
-                left: keyText.right; leftMargin: 10;    
-                top: keyText.top;
-                right: root.right; rightMargin: 10;
+                left: keyText.left; // leftMargin: 10;    
+                top: keyText.bottom; topMargin:15;
+                // right: modeColumn.right; rightMargin: 10;
                 //verticalCenter: keyText.verticalCenter;
             }
             onClicked:{
-                switchKey();
+                if(keyOpt == 0)
+                    keyOpt = 1
+                else if(keyOpt == 1)
+                    keyOpt = 0
+                guessChord()
             }
         }
+
+        ColumnLayout {
+            id: modeColumn // chord guess mode
+            spacing:0;
+            height: 100;
+            implicitWidth: root.width/2;
+            Text{
+                text:"Chord guessing mode";
+            }
+            anchors{
+                left: switchKeyButton.right; leftMargin: 10;
+                right: descriptionText.right; // rightMargin: 10;
+                top: descriptionText.bottom; topMargin: 5;
+            }
+            ExclusiveGroup { id: tabPositionGroup }
+            RadioButton {
+                text: qsTr("First (CPF+HMC)")
+                exclusiveGroup: tabPositionGroup
+                checked:true;
+                onClicked:{
+                    mode = 0
+                }
+            }
+            RadioButton {
+                text: qsTr("Second (HMC+CPF)")
+                exclusiveGroup: tabPositionGroup
+                onClicked:{
+                    mode = 1
+                }
+            }
+            RadioButton {
+                text: qsTr("Third (CPF only)")
+                exclusiveGroup: tabPositionGroup
+                onClicked:{
+                    mode = 2
+                }
+            }
+            RadioButton {
+                text: qsTr("Fourth (HMC only)")
+                exclusiveGroup: tabPositionGroup
+                onClicked:{
+                    mode = 3
+                }
+            }
+        }
+
+
 
         
         TextArea{
@@ -698,16 +847,16 @@ MuseScore {
             text:{"Possible chord and their triad notes:\n"+chordAndHarmonyString}
             height:170;
             anchors{
-                top: keyText.bottom; topMargin: 20;
+                top: modeColumn.bottom; topMargin: 20;
                 left: root.left; leftMargin: 10;
                 right: root.right; rightMargin: 10;
-                bottom: possibilityRectangle.top; bottomMargin: 5;
+                // bottom: possRect.top; bottomMargin: 5;
             }
                 
         }
 
         Rectangle{
-            id: possRect // possibility rectangle
+            id: possRect // probability rectangle
             color: "black";
             implicitWidth:possGrid.implicitWidth
             implicitHeight:possGrid.implicitHeight
@@ -729,7 +878,7 @@ MuseScore {
             //         right:possRect.right;rightMargin: 20;
             //         bottom: possGrid.left;bottomMargin: 10;
             //     }
-            //     text:"Select any bar or first note in that bar to see the possibility of each chords."
+            //     text:"Select any bar or first note in that bar to see the probability of each chords."
             // }
             Grid{
                 id: possGrid
@@ -747,19 +896,31 @@ MuseScore {
                 horizontalItemAlignment: Grid.AlignHCenter;
                 Repeater{
                     id: gridRepeater
-                    model: ["CHORD NAME" , "POSSIBILITY", ""+ possibleChord[0] , 
-                            ""+ possibility[0] + "%", ""+ possibleChord[1] , 
-                            ""+ possibility[1] + "%", ""+ possibleChord[2] , 
-                            ""+ possibility[2] + "%", ""+ possibleChord[3] ,
-                            ""+ possibility[3] + "%", ""+ possibleChord[4] , 
-                            ""+ possibility[4] + "%", ""+ possibleChord[5] , 
-                            ""+ possibility[5] + "%", ""+possibleChord[6] , 
-                            ""+ possibility[6] + "%"]
+                    model: ["CHORD NAME" , "PROBABILITY", ""+ possibleChord[0] , 
+                            ""+ probability[0] + "%", ""+ possibleChord[1] , 
+                            ""+ probability[1] + "%", ""+ possibleChord[2] , 
+                            ""+ probability[2] + "%", ""+ possibleChord[3] ,
+                            ""+ probability[3] + "%", ""+ possibleChord[4] , 
+                            ""+ probability[4] + "%", ""+ possibleChord[5] , 
+                            ""+ probability[5] + "%", ""+ possibleChord[6] , 
+                            ""+ probability[6] + "%"]
                     Rectangle{
                         height: possGrid.height/ possGrid.rows
                         width: possGrid.width/ possGrid.columns - border.width
                         clip:true;
                         color: "lightyellow"
+                        MouseArea{
+                            id:mouse;
+                            anchors.fill: parent;
+                            enabled:false;
+                            onClicked: {
+                                changeChordSymbol(model.modelData)
+                            }
+                        }    
+                        Component.onCompleted:{
+                            if(model.index != 0 && model.index % 2 == 0)
+                                mouse.enabled = true;
+                        }
                         anchors.margins:0
                         border{
                             color:black;
@@ -770,7 +931,7 @@ MuseScore {
                             anchors{
                                 verticalCenter: parent.verticalCenter;
                                 horizontalCenter: parent.horizontalCenter;
-                            }
+                            }                            
                             text: model.modelData;
                             color:black;
                             font{
@@ -779,34 +940,7 @@ MuseScore {
                             }
                         }
                     }
-                }
-
-                 
-                // Text{id: "r1c1"; text:"Chord"; font{bold:true; pixelSize:20;} width:parent.width/2; clip: true;  }
-                // Text{id: "r1c2"; text:"Possibility"; font{bold:true; pixelSize:20;} width:parent.width/2;horizontalAlignment:Text.AlignHCenter;clip: true;  }
-                // Text{id: "r2c1"; text: ""+ possibleChord[0]; width:parent.width/2}
-                // Text{id: "r2c2"; text: ""+ possibility[0] + "%"; }
-                // Text{id: "r3c1"; text: ""+ possibleChord[1]; width:parent.width/2}
-                // Text{id: "r3c2"; text: ""+ possibility[1] + "%"}
-                // Text{id: "r4c1"; text: ""+ possibleChord[2];  width:parent.width/2}
-                // Text{id: "r4c2"; text: ""+ possibility[2] + "%";}
-                // Text{id: "r5c1"; text: ""+ possibleChord[3]; width:parent.width/2}
-                // Text{id: "r5c2"; text: ""+ possibility[3] + "%"}
-                // Text{id: "r6c1"; text: ""+ possibleChord[4]; width:parent.width/2}
-                // Text{id: "r6c2"; text: ""+ possibility[4] + "%"}
-                // Text{id: "r7c1"; text: ""+ possibleChord[5]; width:parent.width/2}
-                // Text{id: "r7c2"; text: ""+ possibility[5] + "%"}
-                // Text{id: "r8c1"; text: ""+ possibleChord[6]; width:parent.width/2}
-                // Text{id: "r8c2"; text: ""+ possibility[6] + "%"}
-                // Repeater{
-                //     model:[ text:"SBSDB", "Possibility", possibleChord[0], possibleChord[1]]
-                //     Text{
-                //         width:parent.width/2;
-                //         text: model.modelData
-                //     }
-                // }
-                
-                
+                }              
             }
         }
         Button{
@@ -820,8 +954,7 @@ MuseScore {
                 horizontalCenter: root.horizontalCenter;
             }
             onClicked:{
-                guessChordWithKey(key);
-                
+                guessChord();
             }
         }
     }
