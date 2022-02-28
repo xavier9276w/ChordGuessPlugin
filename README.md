@@ -17,3 +17,4 @@ MuseScore ChordGuess plugin guesses the chords for a piece of monophonic music. 
 
 ## Release
 ChordGuessV1
+ChordGuessV2
