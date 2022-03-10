@@ -1,19 +1,19 @@
 import MuseScore 3.0
-import QtQuick 2.1
+import QtQuick 2.9
 import QtQuick.Layouts 1.0
-import QtQuick.Controls 1.4
+import QtQuick.Controls 2.2
 import QtQuick.Dialogs 1.0
 import Qt.labs.settings 1.0
 
 MuseScore {
     version:  "3.0";
-	description: "Guess chord based on the notes bar by bar, based on some logic.";
-	menuPath: "Plugins.ChordGuessV2";
+    description: "Guess chord based on the notes bar by bar, based on some logic.";
+    menuPath: "Plugins.ChordGuessV3";
     pluginType: "dock";
     requiresScore: true;
     dockArea: "left";
-    implicitWidth: 400;
-    implicitHeight: 3000;
+    width:parent.width;
+    height:parent.height;
     
     property variant black     : "#000000"
     property variant red       : "#ff0000"
@@ -39,6 +39,8 @@ MuseScore {
     property var probability: []; 
     property var currentBarNumber: 0;
     property var keyOpt : -1;
+    property var dynamicDescription
+    property var lastNote;
     // nameNote function is used to identify all the notes present in the score
     // tpc is tonal pitch class, each represent a pitch such as (14 = C)
     // the notes pass in is a list
@@ -245,7 +247,7 @@ MuseScore {
         if("Ab Major/F minor".includes(key))  chords = ["Ab", "Bbm", "Cm" , "Db" , "Eb" , "Fm", "Gdim"  ];
         if("Eb Major/C minor".includes(key))  chords = ["Eb", "Fm" , "Gm" , "Ab" , "Bb" , "Cm", "Ddim"  ];
         if("Bb Major/G minor".includes(key))  chords = ["Bb", "Cm" , "Dm" , "Eb" , "F"  , "Gm", "Adim"  ];
-        if("F Major/D minor".includes(key))   chords = ["F" , "Gm" , "Am" , "Bb" , "C" , "Dm" , "Em"    ];
+        if("F Major/D minor".includes(key))   chords = ["F" , "Gm" , "Am" , "Bb" , "C" , "Dm" , "Edim"    ];
     
         if("C Major/A minor".includes(key))   chords = ["C",  "Dm", "Em", "F"  , "G", "Am", "Bdim"];
 
@@ -263,7 +265,7 @@ MuseScore {
         return chords
     }
 
- 
+
     function getSegmentHarmony(segment) {
         //if (segment.segmentType != Segment.ChordRest) 
         //    return null;
@@ -280,7 +282,7 @@ MuseScore {
         return null;
     } 
 
-   
+
     // this function is to display the possible chord and their harmony,
     // so in main function, these logic can be hidden
     function getChordsAndHarmonyText(possibleChord,chordHarmonyArray){
@@ -334,7 +336,6 @@ MuseScore {
             bar++       
             currentMeasure = currentMeasure.nextMeasure        
         }
-
         // clear last empty bars with no notes
         var c = tempNotes.length -1
         while(tempNotes[c].length == 0){
@@ -409,10 +410,35 @@ MuseScore {
         guessedChord[currentBarNumber].name = name;
         guessedChord[currentBarNumber].color = black;
         addChordSymbol(cursor,harmony,black, guessedChord[currentBarNumber].name)
+        playThisBar(cursor,harmony)
         curScore.endCmd()
     }
 
-    // 
+    // use cmd play to play this bar after changing the chord symbol
+    function playThisBar(cursor,harmony){
+        var seg = cursor.segment
+        // console.log("cursor.segment.type = " + seg.type)
+        // console.log("cursor.segment.segmentType = " + seg.segmentType)
+        if(cursor.segment.segmentType == Segment.ChordRest){
+            console.log("cursor.segement.elementAt(0) = " + seg.elementAt(0))
+            if(seg.elementAt(0).notes){
+                console.log("seg.elementAt(0).notes[0] = " + seg.elementAt(0).notes[0])
+                console.log("select = " + curScore.selection.select(cursor.segment.elementAt(0).notes[0]))
+            }else{
+                curScore.selection.select(seg.elementAt(0))
+            }
+            cmd("loop-in")
+            // var lastNote;
+            // while(!cursor.nextMeasure()){
+            //     while(cursor.next(){
+            //         lastNote = 
+            //     })
+            // }
+            curScore.selection.select(harmony) 
+            cmd("play")
+        }
+    }
+    // skip the bars with no notes, when the current bar is not empty, return cursor and bar number
     function checkEmptyAndUpbeatBars(){
         var nBarsToGuess = 0;
         var cursor = curScore.newCursor();
@@ -695,6 +721,13 @@ MuseScore {
         }
         return temp;
     }
+
+    function changeDynamicDescription(string){
+        if(string.length == 0)
+            dynamicDescription = "<b>Chord Guess Plugin</b> <br><br> <i>This plugin guess chords to each bar automatically based on chord formula progression and notes analysis</i>"
+        else
+            dynamicDescription = string;
+    }
     // onRun 
     onRun: {
         notes = extractNotes();
@@ -736,54 +769,96 @@ MuseScore {
             // console.log("probability[" + currentBarNumber + "] = " + probability)
         }
     }
-
+    
     Rectangle{
         id: root;
         anchors.fill: parent;
         color: "lightblue";
         width: 400
 
-        TextArea{
-            id: descriptionText;
-            height: 110;
+        Rectangle{
+            id:descriptionText;
+            color:"white";
+            implicitHeight:{
+                if(root.height/4 >= 135)
+                    return 135;
+                else
+                    return root.height/5;
+            }
+            border{
+                color:"black"
+                width:2
+            }
             anchors{
                 top: root.top; topMargin: 10
                 left: root.left; leftMargin: 10;
                 right: root.right; rightMargin: 10;
             }
-            font{
-                bold:true;
+            ScrollView {
+                id: view
+                clip:true
+                leftPadding:10;
+                topPadding:5;
+                bottomPadding:10;
+                rightPadding:5
+                anchors{
+                    fill:parent;
+                }
+                contentWidth:availableWidth;
+                Text{
+                    anchors{
+                        fill:parent;
+                    }
+                    wrapMode:Text.WordWrap
+                    text:dynamicDescription
+                    Component.onCompleted:{
+                        changeDynamicDescription("")
+                    }
+                }
             }
-            text: "ChordGuess Plugin\n\nThis plugin guess chords to each bar automatically based on chord formula progression and notes analysis";
         }
-    
-        Text{
+        Rectangle{
+            color: "transparent"
             id: keyText;
-            height: modeColumn.height/2;
+            height: (modeColumn.height * 2/3)
             width: descriptionText.width/2;
-            wrapMode: Text.WordWrap
-            font{
-                bold:true;
-                pixelSize:18
+            MouseArea{
+                hoverEnabled: true;
+                anchors.fill:parent
+                onEntered:{
+                    changeDynamicDescription("")
+                }
             }
             anchors{
                 left: descriptionText.left; //leftMargin: 10;
                 top: descriptionText.bottom; topMargin: 5;
             }
-            text: "Key of this score: " + key;
+            clip:true;
+            Text{
+                wrapMode: Text.WordWrap
+                anchors.fill: parent;
+            font{
+                bold:true;
+                pixelSize:18
+            }
+                text: "Key of this score: " + key;
+            }
         }
+        
 
         Button{
             id: switchKeyButton;
             text: "Switch Key";  
-            height: modeColumn.height/2;
             implicitWidth: keyText.width
+            highlighted: true;
             anchors{
                 left: keyText.left; // leftMargin: 10;    
-                top: keyText.bottom; topMargin:15;
+                top: keyText.bottom; topMargin:5;
+                bottom: modeColumn.bottom;
                 // right: modeColumn.right; rightMargin: 10;
                 //verticalCenter: keyText.verticalCenter;
             }
+
             onClicked:{
                 if(keyOpt == 0)
                     keyOpt = 1
@@ -795,72 +870,230 @@ MuseScore {
 
         ColumnLayout {
             id: modeColumn // chord guess mode
-            spacing:0;
-            height: 100;
             implicitWidth: root.width/2;
-            Text{
-                text:"Chord guessing mode";
-            }
             anchors{
                 left: switchKeyButton.right; leftMargin: 10;
-                right: descriptionText.right; // rightMargin: 10;
-                top: descriptionText.bottom; topMargin: 5;
+                right: descriptionText.right;
+                top:descriptionText.bottom; topMargin: 10;
             }
-            ExclusiveGroup { id: tabPositionGroup }
+            Text{
+                font{
+                    pixelSize:15;
+                }
+                Layout.preferredHeight:20
+                text:"Chord guessing mode:";
+                MouseArea{
+                    anchors.fill:parent
+                    hoverEnabled: true
+                    id: modeDescription
+                    onClicked:{changeDynamicDescription("<b>Chord <small>Guess Mode</small></b><br>\
+                                        <br><i><b>HNM (Harmony note matching)</b> determine chord by matching the notes in bar and the chords' triad notes</i></small>\
+                                        <br><i><b>CPF (Chord progression fomula)</b> determine chord by guessing potential chords after the previous chord</i>")}
+                    ToolTip {
+                        visible: parent.containsMouse
+                        clip:true
+                        text: "click to see details"
+                        delay:1000
+                    }
+                } 
+            }
+            // ---------button 1-------------
             RadioButton {
-                text: qsTr("First (CPF+HMC)")
-                exclusiveGroup: tabPositionGroup
+                id:button1;
+                text: qsTr("First (CPF+HNM)")
                 checked:true;
+                Layout.preferredHeight:20;
                 onClicked:{
                     mode = 0
+                    console.log("mode = " + mode)
+                }
+                indicator:  Rectangle {
+                    width:16; height: 16; radius: 8
+                    y:2 ; x:2
+                    border.color: "black";
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 3
+                        x:parent.radius/2
+                        y:parent.radius/2
+                        color: "red"
+                        visible:button1.checked
+                    }
+                }
+                ToolTip {
+                    visible: button1.hovered
+                    clip:true
+                    text: "Combine two approach, if there is no chord\nmatch both algorithm guess a chord using CPF"
+                    delay:1000
+                }
+                contentItem: Text {
+                    text: button1.text
+                    opacity: button1.checked ? 1.0 : 0.6
+                    color: "black"
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: button1.indicator.width
                 }
             }
+            //--------------button 2-----------
             RadioButton {
-                text: qsTr("Second (HMC+CPF)")
-                exclusiveGroup: tabPositionGroup
+                text: qsTr("Second (HNM+CPF)")
+                id:button2
+                Layout.preferredHeight:20
+                
                 onClicked:{
                     mode = 1
+                    console.log("mode = " + mode)
+                }
+                indicator:  Rectangle {
+                    width:16; height: 16; radius: 8
+                    y:2 ; x:2
+                    border.color: "black";
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 3
+                        x:parent.radius/2
+                        y:parent.radius/2
+                        color: "red"
+                        visible:button2.checked
+                    }
+                }
+                ToolTip {
+                    visible: button2.hovered
+                    clip:true
+                    text: "Combine two approach, if there is no chord\nmatch both algorithm guess a chord using HMC"
+                    delay:1000
+                }
+                contentItem: Text {
+                    id: button2Text
+                    text: button2.text
+                    opacity: button2.checked ? 1.0 : 0.6
+                    color: "black"
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: button2.indicator.width
                 }
             }
+            //-- -------------button3 ---------------
             RadioButton {
+                id:button3
                 text: qsTr("Third (CPF only)")
-                exclusiveGroup: tabPositionGroup
                 onClicked:{
                     mode = 2
+                    console.log("mode = " + mode)
+                }
+                Layout.preferredHeight:20
+                indicator:  Rectangle {
+                    width:16; height: 16; radius: 8
+                    y:2 ; x:2
+                    border.color: "black";
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 3
+                        x:parent.radius/2
+                        y:parent.radius/2
+                        color: "red"
+                        visible:button3.checked
+                    }
+                }
+                ToolTip {
+                    visible: button3.hovered
+                    clip:true
+                    text: "Guess chords using Chord Progression Formula only"
+                    delay:1000
+                }
+                contentItem: Text {
+                    text: button3.text
+                    opacity: button3.checked ? 1.0 : 0.6
+                    color: "black"
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: button3.indicator.width
                 }
             }
+            // ----------------- button 4 --------------------
             RadioButton {
-                text: qsTr("Fourth (HMC only)")
-                exclusiveGroup: tabPositionGroup
+                id:button4;
+                text: qsTr("Fourth (HNM only)")
                 onClicked:{
                     mode = 3
+                    console.log("mode = " + mode)
+                }
+                Layout.preferredHeight:20
+                indicator: Rectangle {
+                    width:16; height: 16; radius: 8
+                    y:2 ; x:2
+                    border.color: "black";
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 3
+                        x:parent.radius/2
+                        y:parent.radius/2
+                        color: "red"
+                        visible:button4.checked
+                    }
+                }
+                ToolTip {
+                    visible: button4.hovered
+                    clip:true
+                    text: "Guess chords using Harmony Note Matching only"
+                    delay:1000
+                }
+                contentItem: Text {
+                    id: asdb
+                    text: parent.text
+                    opacity: parent.checked ? 1.0 : 0.6
+                    color: "black"
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: parent.indicator.width
                 }
             }
         }
 
-
-
         
-        TextArea{
+        Rectangle{
             id: possibleChordText;  
-            readOnly : true;
-            text:{"Possible chord and their triad notes:\n"+chordAndHarmonyString}
-            height:170;
+            color:"white"
+            clip:true
+            implicitHeight:{
+                if(root.height/4 > 175)
+                    return 175;
+                else
+                    return root.height/4
+            }
             anchors{
                 top: modeColumn.bottom; topMargin: 20;
                 left: root.left; leftMargin: 10;
                 right: root.right; rightMargin: 10;
                 // bottom: possRect.top; bottomMargin: 5;
             }
-                
+            border{
+                width:2
+                color:black
+            }
+            ScrollView {
+                leftPadding:10;
+                topPadding:5;
+                bottomPadding:10;
+                rightPadding:5
+                anchors{
+                    fill:parent;
+                }
+                // contentWidth:availableWidth;
+                Text{
+                    anchors.fill: parent;
+                    text:{"Possible chord and their triad notes:\n"+chordAndHarmonyString}                    
+                }
+            }
         }
+        
 
         Rectangle{
             id: possRect // probability rectangle
             color: "black";
             implicitWidth:possGrid.implicitWidth
             implicitHeight:possGrid.implicitHeight
-        
             anchors{
                 left: descriptionText.left; leftMargin:;
                 right: descriptionText.right; rightMargin:;
@@ -868,25 +1101,9 @@ MuseScore {
                 top: possibleChordText.bottom; topMargin:10;
             }
             
-            // Text{
-            //     id:possText
-            //     width: possGrid.implicitWidth;
-            //     height: 20
-            //     anchors{
-            //         top:possRect.top;topMargin: 10;
-            //         left: possRect.left;leftMargin: 20;
-            //         right:possRect.right;rightMargin: 20;
-            //         bottom: possGrid.left;bottomMargin: 10;
-            //     }
-            //     text:"Select any bar or first note in that bar to see the probability of each chords."
-            // }
             Grid{
                 id: possGrid
                 anchors{
-                    leftMargin: 5;
-                    topMargin: 5;
-                    rightMargin: 5;
-                    bottomMargin: 5;
                     fill: possRect
                 }
                 clip:true
@@ -905,23 +1122,32 @@ MuseScore {
                             ""+ probability[5] + "%", ""+ possibleChord[6] , 
                             ""+ probability[6] + "%"]
                     Rectangle{
+                        id:possEntity
                         height: possGrid.height/ possGrid.rows
                         width: possGrid.width/ possGrid.columns - border.width
                         clip:true;
                         color: "lightyellow"
                         MouseArea{
-                            id:mouse;
+                            id:mouse2;
                             anchors.fill: parent;
                             enabled:false;
+                            onPressed:{
+                                parent.color = "#F9E79F"
+                            }
+                            onReleased:{
+                                parent.color = "#F4D03F"
+                            }
                             onClicked: {
                                 changeChordSymbol(model.modelData)
                             }
                         }    
                         Component.onCompleted:{
-                            if(model.index != 0 && model.index % 2 == 0)
-                                mouse.enabled = true;
+                            if(model.index != 0 && model.index % 2 == 0){
+                                possEntity.color = "#F4D03F"
+                                //possEntity.border.color = "white"
+                                mouse2.enabled = true;
+                            }
                         }
-                        anchors.margins:0
                         border{
                             color:black;
                             width:2;
@@ -948,6 +1174,9 @@ MuseScore {
             width: text.width;
             clip:true;
             text: "Guess Chord" ;
+            highlighted:true
+            ToolTip.visible:true;
+            ToolTip.text: qsTr("SADBSBS")
             anchors{
                 bottom: root.bottom;
                 bottomMargin: 10;
