@@ -12,8 +12,8 @@ MuseScore {
     pluginType: "dock";
     requiresScore: true;
     dockArea: "left";
-    width:parent.width;
-    height:parent.height;
+    implicitWidth: 400;
+    implicitHeight: 3000;
     
     property variant black     : "#000000"
     property variant red       : "#ff0000"
