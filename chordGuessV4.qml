@@ -8,17 +8,17 @@ import Qt.labs.settings 1.0
 MuseScore {
     version:  "3.0";
     description: "Guess chord based on the notes bar by bar, based on some logic.";
-    menuPath: "Plugins.ChordGuessV3";
+    menuPath: "Plugins.ChordGuessV4";
     pluginType: "dock";
     requiresScore: true;
     dockArea: "left";
-    implicitWidth: 400;
-    implicitHeight: 3000;
-    
+    // for debug use
+    // implicitWidth: parent.width;
+    // implicitHeight: parent.height;
+    implicitWidth:500;
+    implicitHeight: 3500;
     property variant black     : "#000000"
     property variant red       : "#ff0000"
-    property variant green     : "#00ff00"
-    property variant blue      : "#0000ff"
     property var numOfAccidentals : curScore.keysig;
     // This method int will have 4 possible values 0, 1, 2,3 
     // combined method (CPF + note matching)
@@ -411,7 +411,7 @@ MuseScore {
         guessedChord[currentBarNumber].color = black;
         addChordSymbol(cursor,harmony,black, guessedChord[currentBarNumber].name)
         playThisBar(cursor,harmony)
-        curScore.endCmd()
+        
     }
 
     // use cmd play to play this bar after changing the chord symbol
@@ -427,7 +427,6 @@ MuseScore {
             }else{
                 curScore.selection.select(seg.elementAt(0))
             }
-            cmd("loop-in")
             // var lastNote;
             // while(!cursor.nextMeasure()){
             //     while(cursor.next(){
@@ -435,6 +434,8 @@ MuseScore {
             //     })
             // }
             curScore.selection.select(harmony) 
+            curScore.endCmd() 
+            // cmd("loop")
             cmd("play")
         }
     }
@@ -730,14 +731,16 @@ MuseScore {
     }
     // onRun 
     onRun: {
-        notes = extractNotes();
-        probability = [];
+        notes = extractNotes()
+        probability = []
         guessChord()
     }
 
     onScoreStateChanged: {
+        console.log("state changed")
         if(state.selectionChanged){
             probability = []
+            console.log("selection changed")
             if(curScore.selection.elements.length == 0){
                 console.log("NOTHING WAS SELECTED")
             }
@@ -746,7 +749,7 @@ MuseScore {
                     var firstElement = curScore.selection.elements[0]
                     var seg = firstElement.parent
                     // while(firstElemenet.parent.type != Element){}
-                    currentBarNumber = findBar(seg.tick);
+                    currentBarNumber = findBar(seg.tick)
                 } 
                 else {
                     var cursor = curScore.newCursor();
