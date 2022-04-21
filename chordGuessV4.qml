@@ -537,7 +537,7 @@
                     nextChord = [0,1,2,3,4,5,6];
                     break;
                 case 1:
-                    nextChord = [4,6];
+                    nextChord = [2,4];
                     break;
                 case 2:
                     nextChord = [3,5];
@@ -546,7 +546,7 @@
                     nextChord = [1,4,6];
                     break;
                 case 4:
-                    nextChord = [0,6];
+                    nextChord = [0];
                     break;
                 case 5:
                     nextChord = [1,3];
